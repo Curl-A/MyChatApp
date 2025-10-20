@@ -19,17 +19,20 @@ int main() {
 	//connet to server
 	connect(client_fd,(struct sockaddr*)&serv_addr,sizeof(serv_addr));
 
-
+	std::string msg;
 	//send message
-	const char* msg="Hi from client";
-	send(client_fd,msg,strlen(msg),0);
-
-	std::cout<<"Message Sent"<<std::endl;
-	//receive ack from server
-	read(client_fd,buffer,1024);
-
-	std::cout<<buffer<<std::endl;
-
+	while(true) {
+		std::cout<<" >";
+		std::getline(std::cin,msg);
+	        send(client_fd,msg.c_str(),strlen(msg.c_str()),0);
+                
+		//std::cout<<"Message Sent"<<std::endl;
+		//receive ack from server
+		read(client_fd,buffer,1024);
+                
+		std::string msg2(buffer);
+		std::cout<<msg2<<std::endl;
+	}
 	close(client_fd);
 
 	return 0;
