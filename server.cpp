@@ -1,46 +1,87 @@
 #include<iostream>
 #include<arpa/inet.h>
-#include<cstring>
 #include<unistd.h>
-int main(){
+#include<cstring>
+#include<thread>
+#include<mutex>
+#include<vector>
+#include<algorithm>
+#include "Logger.h"
 
-     int server_fd, new_socket;
-     struct sockaddr_in serv_addr, client_addr;
-     serv_addr.sin_family=AF_INET;
-     serv_addr.sin_port=htons(8080);
-     serv_addr.sin_addr.s_addr = INADDR_ANY;
+std::mutex cout_mtx;
+std::mutex client_mtx;
+std::vector<int> clients;
+Logger logger("server.log");
+void broadcastMessage(const std::string &msg, int sender){
+	for(int client:clients){
+		if(client!=sender){
+		    send(sender,msg.c_str(),msg.length(),0);
+		    logger.log("INFO","Server broadcasted message successfully");
+		}
+	}
+}
 
-    //create socket
-    server_fd = socket(AF_INET,SOCK_STREAM,0);
+void handleClient(int clsock){
+	char buffer[1024];
+	while(true){
+	 	int bytes=recv(clsock,buffer,sizeof(buffer),0);
+		if(bytes<0)
+		    logger.log("INFO","client "+std::to_string(clsock)+" got disconnected");
+		buffer[bytes]='\0';
+		
+		std::string msg;
+		msg="Client "+std::to_string(clsock)+" saying "+buffer;
+		{
+			std::lock_guard<std::mutex> lock(cout_mtx);
+			std::cout<<msg<<std::endl;
+		}
+		broadcastMessage(msg,clsock);
+	}
+	{
+		std::lock_guard<std::mutex> lock(client_mtx);
+		clients.erase(std::remove(clients.begin(),clients.end(),clsock),clients.end());
+	}
+	close(clsock);	
+}
+int main() {
+	int server_fd,clsock;
+	struct sockaddr_in serv_addr,client_addr;
+	serv_addr.sin_family = AF_INET;
+	serv_addr.sin_port = htons(8080);
+	serv_addr.sin_addr.s_addr = INADDR_ANY;
 
-    //bind socket to port
-    bind(server_fd, (struct sockaddr*)&serv_addr, sizeof(serv_addr));
+	//create socket
+	server_fd = socket(AF_INET, SOCK_STREAM,0);
+	if(server_fd == -1){
+		logger.log("WARN","socket creation failed");
+		return 1;
+	}
+	
+	//bind socket with port
+	if(bind(server_fd,(struct sockaddr*)&serv_addr,sizeof(serv_addr))<0) {
+		logger.log("INFO","Bind failed");
+		return 1;
 
-    //listen on socket
-    listen(server_fd,3);
+	}
 
-    //accept the client connection
-    new_socket= accept(server_fd, (struct sockaddr*)&client_addr, (socklen_t*) &client_addr);
-    char buffer[1024];
-    while(true) {
-        //read message
-    	//read(new_socket, buffer, 1024);
 
-	int bytes=recv(new_socket, buffer, sizeof(buffer),0);
-	//if(bytes<=0) break;
-	buffer[bytes]='\0';
-
-	std::string msg(buffer);
-
-    	std::cout<<"Message from Client: "<<msg<<std::endl;
-
-       //send message
-       //const char* msg="message Received";
-       //send(new_socket, msg, strlen(msg),0);
-    }
-    //closing connection
-    close(new_socket);
-    close(server_fd);
-
-    return 0;
+	//listen
+	if(listen(server_fd,3) < 0){
+		logger.log("INFO","listen failed");
+		return 1;
+	}
+	
+        while(true){
+	//accept connections
+	
+		clsock=accept(server_fd,(struct sockaddr*)&client_addr, (socklen_t*)&client_addr);
+		if(clsock < 0) {
+			logger.log("WARN","Client Socket creation failed");
+			return 1;
+		}
+		clients.push_back(clsock);
+		std::thread(handleClient,clsock).detach();	
+	}
+	close(clsock);
+	close(server_fd);
 }

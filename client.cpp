@@ -2,8 +2,10 @@
 #include<arpa/inet.h>
 #include<unistd.h>
 #include<cstring>
+#include "Logger.h"
 
 int main() {
+	Logger logger("client.log");
 	int client_fd;
 
 	struct sockaddr_in serv_addr;
@@ -15,9 +17,12 @@ int main() {
 
 	//create socket
 	client_fd = socket(AF_INET,SOCK_STREAM,0);
-
+        
 	//connet to server
-	connect(client_fd,(struct sockaddr*)&serv_addr,sizeof(serv_addr));
+	if(connect(client_fd,(struct sockaddr*)&serv_addr,sizeof(serv_addr))>0)
+	        logger.log("INFO","Connection to server successful");
+	else
+		logger.log("DEBUG","Connection to server failed");
 
 	std::string msg;
 	//send message
