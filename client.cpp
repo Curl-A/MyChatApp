@@ -17,22 +17,29 @@ int main() {
 
 	//create socket
 	client_fd = socket(AF_INET,SOCK_STREAM,0);
+	if(client_fd > 0) 
+		logger.log("INFO","Socket created successfully");
+	else{
+		logger.log("ERROR","Socket creation failed");
+		return 1;
+	}
         
 	//connet to server
-	if(connect(client_fd,(struct sockaddr*)&serv_addr,sizeof(serv_addr))>0)
+	if(connect(client_fd,(struct sockaddr*)&serv_addr,sizeof(serv_addr)) == 0)
 	        logger.log("INFO","Connection to server successful");
 	else
-		logger.log("DEBUG","Connection to server failed");
+		logger.log("ERROR","Connection to server failed");
 
 	std::string msg;
 	//send message
 	while(true) {
 		std::cout<<" >";
 		std::getline(std::cin,msg);
-	        send(client_fd,msg.c_str(),strlen(msg.c_str()),0);
+	        send(client_fd,msg.c_str(),msg.size(),0);
                 
 		//std::cout<<"Message Sent"<<std::endl;
 		//receive ack from server
+		memset(buffer,0,sizeof(buffer));
 		read(client_fd,buffer,1024);
                 
 		std::string msg2(buffer);
